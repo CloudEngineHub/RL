@@ -24,7 +24,7 @@ from nemo_rl.models.generation import configure_generation_config
 from nemo_rl.models.generation.vllm import VllmConfig, VllmGeneration
 
 # Large model configuration
-model_name = "meta-llama/Llama-3.1-70B"
+model_name = "Qwen/Qwen2.5-7B-Instruct"
 
 # Define basic vLLM test config for large model
 large_model_vllm_config: VllmConfig = {
@@ -90,7 +90,7 @@ def test_input_data(tokenizer):
     test_prompts = [
         "Hello, my name is",
         "The capital of France is",
-    ]
+    ] * 16
 
     # Tokenize prompts
     encodings = tokenizer(
@@ -115,11 +115,9 @@ def test_input_data(tokenizer):
 
 
 # skip this test for now
-@pytest.mark.skip(reason="Skipping large model test until we have resources in CI.")
-@pytest.mark.hf_gated
 @pytest.mark.asyncio
-@pytest.mark.parametrize("tensor_parallel_size", [4, 8])
-@pytest.mark.parametrize("pipeline_parallel_size", [2])
+@pytest.mark.parametrize("tensor_parallel_size", [1])
+@pytest.mark.parametrize("pipeline_parallel_size", [1])
 async def test_vllm_large_model(
     two_node_cluster,
     test_input_data,
@@ -144,6 +142,7 @@ async def test_vllm_large_model(
         vllm_config["vllm_cfg"]["tensor_parallel_size"] = tensor_parallel_size
         vllm_config["vllm_cfg"]["pipeline_parallel_size"] = pipeline_parallel_size
         vllm_config = configure_generation_config(vllm_config, tokenizer)
+        vllm_config["vllm_cfg"]["load_format"] = "auto"
 
         print(
             f"Creating vLLM policy with TP={tensor_parallel_size}, PP={pipeline_parallel_size}"
