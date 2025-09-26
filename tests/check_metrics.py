@@ -1,3 +1,9 @@
+#!/usr/bin/env -S uv run --script -q
+# /// script
+# dependencies = [
+#   "rich"
+# ]
+# ///
 # Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -99,14 +105,14 @@ def main():
     parser.epilog = """
     Examples:
       # Check if a specific metric is above a threshold
-      python check_metrics.py results.json "data['accuracy'] > 0.9"
+      ./check_metrics.py results.json "data['accuracy'] > 0.9"
 
       # Check multiple conditions
-      python check_metrics.py results.json "data['precision'] > 0.8" "data['recall'] > 0.7"
+      ./check_metrics.py results.json "data['precision'] > 0.8" "data['recall'] > 0.7"
 
       # Use helper functions
-      python check_metrics.py results.json "min(data['class_f1']) > 0.6"
-      python check_metrics.py results.json "mean(data['accuracies']) > 0.85"
+      ./check_metrics.py results.json "min(data['class_f1']) > 0.6"
+      ./check_metrics.py results.json "mean(data['accuracies']) > 0.85"
     """
     parser.formatter_class = argparse.RawDescriptionHelpFormatter
     args = parser.parse_args()
