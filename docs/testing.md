@@ -293,7 +293,8 @@ HF_HOME=... HF_DATASETS_CACHE=... CONTAINER=... MOUNTS=... ACCOUNT=... PARTITION
 
 Tips and conventions:
 
-- Exit code 125 means “skip this commit” in git bisect; our helper returns 125 if required env is missing or if it needs to abort safely.
+- Exit code 125 means "skip this commit" in git bisect; our helper returns 125 if required env is missing or if it needs to abort safely.
 - Submodules must be clean. The bisect script enforces `submodule.recurse=true` and `fetch.recurseSubmodules=on-demand` so submodules follow commit checkouts.
+- The bisect script automatically unshallows all submodules at the start to ensure any submodule commit can be checked out during the bisect process. This is important because bisecting may need to jump to arbitrary commits in submodule history.
 - Each commit uses a fresh code snapshot directory and a separate Megatron checkpoint dir to avoid cross-commit contamination.
 - On failure/interrupt, a timestamped bisect log is saved under `<repo>/bisect-logs/`. Use it with `BISECT_REPLAY_LOG` to resume.

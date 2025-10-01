@@ -246,6 +246,10 @@ fi
 #############################################
 # Ensure submodules are initialized and clean
 #############################################
+# Unshallow all submodules so we can jump to any submodule commit during bisect
+iecho "[bisect] Unshallowing submodules (required to checkout any submodule commit)..."
+git submodule foreach 'if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then echo "Unshallowing..." && git fetch --unshallow; else echo "Already unshallow, skipping"; fi'
+
 # Require submodules to be clean before we begin
 if ! git submodule foreach --recursive 'git update-index -q --refresh || true; if ! git diff --quiet || ! git diff --cached --quiet; then echo "$path has local changes"; exit 1; fi'; then
   fecho "ERROR: One or more submodules have local changes."
