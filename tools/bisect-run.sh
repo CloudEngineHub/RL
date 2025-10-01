@@ -104,6 +104,7 @@ Exit codes inside the command determine good/bad:
 Environment variables:
   GOOD    Commit-ish known to be good (required)
   BAD     Commit-ish suspected bad (required)
+  SKIP_GOOD_CHECK  If set to any non-empty value, skip pre-checking the GOOD commit
   (The script will automatically restore the repo state with 'git bisect reset' on exit.)
 
 Additional features:
@@ -309,25 +310,29 @@ else
   #############################################
   # Pre-check: verify GOOD commit is actually good
   #############################################
-  iecho "[bisect] Verifying GOOD commit '${GOOD}' returns exit code 0 before starting bisect..."
+  if [[ -z "${SKIP_GOOD_CHECK:-}" ]]; then
+    iecho "[bisect] Verifying GOOD commit '${GOOD}' returns exit code 0 before starting bisect..."
 
-  git checkout "$GOOD"
+    git checkout "$GOOD"
 
-  set -x
-  set +e
-  "${USER_CMD[@]}"
-  GOOD_STATUS=$?
-  set -e
-  set +x
+    set -x
+    set +e
+    "${USER_CMD[@]}"
+    GOOD_STATUS=$?
+    set -e
+    set +x
 
-  # Restore original ref regardless of outcome (manually clean )
-  git submodule foreach --recursive 'git reset --hard >/dev/null 2>&1 && git clean -fdx >/dev/null 2>&1'
-  git checkout -
+    # Restore original ref regardless of outcome (manually clean )
+    git submodule foreach --recursive 'git reset --hard >/dev/null 2>&1 && git clean -fdx >/dev/null 2>&1'
+    git checkout -
 
-  if [[ $GOOD_STATUS -ne 0 ]]; then
-    fecho "ERROR: Command failed on GOOD commit ($GOOD) with exit code $GOOD_STATUS."
-    fecho "Please choose a GOOD commit where the command succeeds and retry."
-    exit 2
+    if [[ $GOOD_STATUS -ne 0 ]]; then
+      fecho "ERROR: Command failed on GOOD commit ($GOOD) with exit code $GOOD_STATUS."
+      fecho "Please choose a GOOD commit where the command succeeds and retry."
+      exit 2
+    fi
+  else
+    iecho "[bisect] Skipping GOOD commit verification (SKIP_GOOD_CHECK is set)"
   fi
 
   set -x
