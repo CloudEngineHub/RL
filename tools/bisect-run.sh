@@ -252,6 +252,9 @@ git submodule foreach 'if [ "$(git rev-parse --is-shallow-repository 2>/dev/null
 # Fetch all branches from all submodule remotes to ensure we have complete history
 iecho "[bisect] Fetching all branches from submodule remotes (to ensure all commits are available)..."
 git submodule foreach 'git fetch origin +refs/heads/*:refs/remotes/origin/* 2>/dev/null || true'
+# Fetch all GitHub PR refs to capture commits that may have been on feature branches
+iecho "[bisect] Fetching GitHub PR refs from submodule remotes (to capture PR commits)..."
+git submodule foreach 'git fetch origin +refs/pull/*/head:refs/remotes/origin/pr/* 2>/dev/null || true'
 
 # Require submodules to be clean before we begin
 if ! git submodule foreach --recursive 'git update-index -q --refresh || true; if ! git diff --quiet || ! git diff --cached --quiet; then echo "$path has local changes"; exit 1; fi'; then
