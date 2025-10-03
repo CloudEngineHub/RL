@@ -139,7 +139,8 @@ for SCRIPT in $SCRIPTS; do
         JOB_NAME=$(basename $SCRIPT .sh)
 
         EXTRA_SCRIPT_ARGS=(
-            logger.wandb.name=$(basename $SCRIPT .sh)-$(git log -1 --format='%h-%f' HEAD)
+            logger.wandb.name=$(basename $SCRIPT .sh)
+            ++git_meta=$(git log -1 --format='%h-%f' HEAD)
             # Record the container just for provenance
             ++container=$CONTAINER
             # Add any other args, helpful if you are bisecting and need to pass an argument to make something pass
