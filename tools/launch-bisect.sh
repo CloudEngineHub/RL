@@ -58,7 +58,7 @@ fi
 export WATCH=1
 # Always rebuild venvs because we are using a static container, but we need the environment to match the commit
 # Use a different megatron checkpoint directory since there may be failures related to the checkpoint conversion itself
-export EXTRA_ENV="NRL_FORCE_REBUILD_VENVS=true NRL_MEGATRON_CHECKPOINT_DIR=$PROJECT_ROOT/code_snapshots_bisect/$(basename $TEST_CASE .sh)/mcore_ckpt_dir_$(git log -1 --format='%h-%f' HEAD)"
+export EXTRA_ENV="${EXTRA_ENV:-} NRL_FORCE_REBUILD_VENVS=true NRL_MEGATRON_CHECKPOINT_DIR=$PROJECT_ROOT/code_snapshots_bisect/$(basename $TEST_CASE .sh)/mcore_ckpt_dir_$(git log -1 --format='%h-%f' HEAD)"
 # Use a different code snapshot directory name for each commit otherwise the same named test will run
 export CODE_SNAPSHOT_DIRNAME=code_snapshots_bisect/$(git log -1 --format='%h-%f' HEAD)
 
