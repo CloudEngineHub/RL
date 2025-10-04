@@ -146,7 +146,7 @@ def main():
         "--table-width",
         type=int,
         default=None,
-        help="Set the overall table width (columns will auto-size within this width, default: COLUMNS env var or 150)"
+        help="Set the overall table width (columns will auto-size within this width. Minimum is 150)"
     )
     parser.add_argument(
         "--hide-range-details",
@@ -181,13 +181,6 @@ def main():
     
     # Determine table width: use specified value, or fall back to COLUMNS env var (default 150)
     table_width = args.table_width
-    if table_width is None:
-        columns_str = os.environ.get('COLUMNS', '')
-        try:
-            columns_val = int(columns_str) if columns_str else 0
-        except ValueError:
-            columns_val = 0
-        table_width = columns_val if columns_val > 0 else 150
 
     # Load the JSON data - simplified
     with open(args.json_file, "r") as f:
@@ -197,7 +190,7 @@ def main():
     console = Console()
 
     # Create a table with optional width setting
-    table = Table(title="Metric Checks", width=table_width)
+    table = Table(title="Metric Checks", min_width=150, width=table_width)
     table.add_column("Status", style="bold")
     table.add_column("Check", style="dim")
     table.add_column("Value", style="cyan")
