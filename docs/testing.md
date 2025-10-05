@@ -185,25 +185,34 @@ The required `CONTAINER` can be built by following the instructions in the [Dock
 
 ## Bisecting Failing Tests
 
+> [!IMPORTANT]
+> Always rsync the `tools/` directory to `tools.bisect/` before starting a bisect:
+>
+> ```sh
+> rsync -ahP --delete tools/ tools.bisect/
+> ```
+>
+> This creates a stable copy of the bisect scripts that won't change as git checks out different commits during the bisect process. Without this, the scripts themselves may change mid-bisect, leading to inconsistent behavior or failures. All examples below reference `tools.bisect/` to ensure you use the stable copy.
+
 ### Bisecting Unit/Functional Tests
 
-Use `tools/bisect-run.sh` to automatically run your test command across a commit range and find the first bad commit. It forces venv rebuilds so dependencies match each commit.
+Use `tools.bisect/bisect-run.sh` to automatically run your test command across a commit range and find the first bad commit. It forces venv rebuilds so dependencies match each commit.
 
 Basic usage:
 
 ```sh
 GOOD=<good_ref> BAD=<bad_ref> \
-  tools/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py::test_case
+  tools.bisect/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py::test_case
 ```
 
 Examples:
 
 ```sh
 GOOD=56a6225 BAD=32faafa \
-  tools/bisect-run.sh uv run --group dev pre-commit run --all-files
+  tools.bisect/bisect-run.sh uv run --group dev pre-commit run --all-files
 
 GOOD=464ed38 BAD=c843f1b \
-  tools/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py
+  tools.bisect/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py
 ```
 
 Notes:
@@ -217,7 +226,7 @@ Resume from a saved bisect log:
 
 ```sh
 BISECT_REPLAY_LOG=/abs/path/to/bisect-2025....log \
-  tools/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py
+  tools.bisect/bisect-run.sh uv run --group test pytest tests/unit/test_foobar.py
 ```
 
 ### Bisecting nightlies
@@ -253,7 +262,7 @@ Progressively more advanced cases:
 
 1) Adjusting the test case on the fly with `SED_CLAUSES`
 
- - If a test script needs small textual edits during bisect (e.g., relax a threshold; drop a noisy metric you don’t care to bisect over when focusing on convergence vs. perf), provide a sed script via `SED_CLAUSES`. You can also use this to adjust runtime controls like `MAX_STEPS`, `STEPS_PER_RUN`, or `NUM_MINUTES` when a perf regression slows runs down so they still complete and emit metrics. The helper applies it and automatically restores the test script after the run.
+- If a test script needs small textual edits during bisect (e.g., relax a threshold; drop a noisy metric you don’t care to bisect over when focusing on convergence vs. perf), provide a sed script via `SED_CLAUSES`. You can also use this to adjust runtime controls like `MAX_STEPS`, `STEPS_PER_RUN`, or `NUM_MINUTES` when a perf regression slows runs down so they still complete and emit metrics. The helper applies it and automatically restores the test script after the run.
 
 ```sh
 SED_CLAUSES=$(cat <<'SED'
