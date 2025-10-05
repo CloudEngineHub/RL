@@ -307,3 +307,22 @@ Tips and conventions:
 - The bisect script automatically unshallows all submodules at the start to ensure any submodule commit can be checked out during the bisect process. This is important because bisecting may need to jump to arbitrary commits in submodule history.
 - Each commit uses a fresh code snapshot directory and a separate Megatron checkpoint dir to avoid cross-commit contamination.
 - On failure/interrupt, a timestamped bisect log is saved under `<repo>/bisect-logs/`. Use it with `BISECT_REPLAY_LOG` to resume.
+- In some unusual cases, the bisect may fail while updating a submodule because it references a commit that is orphaned or deleted. Git will typically print the commit hash it was unable to find (e.g., `fatal: remote error: upload-pack: not our ref <commit>`). If the commit is simply orphaned, you can try to manually fetch it:
+
+  ```sh
+  # Assuming Automodel is the submodule with the missing commit
+  cd 3rdparty/Automodel-workspace/Automodel/
+  git fetch origin $the_automodel_commit_that_it_could_not_find
+  ```
+
+  If the manual fetch fails, the commit has likely been deleted from the remote. In this case, skip the problematic commit:
+
+  ```sh
+  git bisect skip $the_nemorl_commit_that_has_the_broken_automodel_commit
+  ```
+
+  After skipping, add the skip command to your `BISECT_REPLAY_LOG` file (located in `<repo>/bisect-logs/`) so the bisect will continue from where it left off and skip that commit when you relaunch `tools.bisect/bisect-run.sh`:
+
+  ```sh
+  echo "git bisect skip $the_nemorl_commit_that_has_the_broken_automodel_commit" >> bisect-logs/bisect-<timestamp>-<sha>.log
+  ```
