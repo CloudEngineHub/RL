@@ -147,6 +147,8 @@ class VllmInternalWorkerExtension:
             else:
                 # Process each handle to get the tensor
                 for name, handle in name_and_handle_list:
+                    if name.startswith("_orig_mod."):
+                        name = name[10:]
                     func = rebuild_cuda_tensor
                     args = handle[0]
                     list_args = list(args)

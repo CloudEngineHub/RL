@@ -64,14 +64,13 @@ from torch.distributed.fsdp import (
     OffloadPolicy,
 )
 from torch.distributed.tensor import DTensor, Shard
+from torchao.float8 import precompute_float8_dynamic_scale_for_fsdp
 from transformers import (
     AutoConfig,
     AutoProcessor,
     AutoTokenizer,
 )
-from transformers.modeling_utils import no_init_weights
 from transformers.models.gemma3.modeling_gemma3 import Gemma3ForCausalLM
-from transformers.utils import ContextManagers
 
 from nemo_rl.algorithms.interfaces import LossFunction, LossType
 from nemo_rl.algorithms.loss_functions import SequencePackingLossWrapper
@@ -181,8 +180,6 @@ class DTensorPolicyWorkerV2:
             )
             print(f"[Rank {self.rank}] Using FlashAttention2 for sequence packing")
 
-        # Load FP8 config from nemo-automodel's definition
-
         model_config = AutoConfig.from_pretrained(
             model_name,
             # Always load the model in float32 to keep master weights in float32.
@@ -245,8 +242,6 @@ class DTensorPolicyWorkerV2:
                 config=model_config,
                 use_liger_kernel=False,
                 torch_dtype=str(model_config.torch_dtype),
-                use_liger_kernel=False,
-                # quantization_config=self.fp8_config,
             )
 
             full_state_dict = model.state_dict()
@@ -255,11 +250,10 @@ class DTensorPolicyWorkerV2:
             del model
 
         print(f"[Rank {self.rank}] Initializing empty model for FSDP...")
-
-        init_ctx = ContextManagers([no_init_weights(), init_empty_weights()])
         # All ranks initialize model on meta device, so FSDP can shard it.
         # The actual weights will be broadcast from rank 0.
-        with init_ctx:
+
+        with init_empty_weights():
             # NeMoAutoModelForCausalLM uses flash_attention_2 by default
             # so we need to set it to None if sequence packing is disabled
             # https://github.com/NVIDIA-NeMo/Automodel/blob/7e748be260651349307862426c0c168cebdeeec3/nemo_automodel/components/_transformers/auto_model.py#L180
@@ -269,7 +263,6 @@ class DTensorPolicyWorkerV2:
                 if self.enable_seq_packing
                 else None,
                 use_liger_kernel=False,
-                fp8_config=self.fp8_config,
                 trust_remote_code=True,
                 torch_dtype=str(model_config.torch_dtype),
             )
@@ -279,14 +272,14 @@ class DTensorPolicyWorkerV2:
             and self.cfg["dtensor_cfg"]["fp8"]["enabled"]
         ):
             assert self.cfg["make_sequence_length_divisible_by"] == 16, (
-                "make_sequence_length_divisible_by must be 16 for FP8 training, but got {self.cfg['make_sequence_length_divisible_by']}"
+                f"make_sequence_length_divisible_by must be 16 for FP8 training, but got {self.cfg['make_sequence_length_divisible_by']}"
             )
-            fp8_config = build_fp8_config(self.cfg["dtensor_cfg"]["fp8"])
-            self.model = apply_fp8_to_model(self.model, config=fp8_config)
+            self.fp8_config = build_fp8_config(self.cfg["dtensor_cfg"]["fp8"])
+            self.model = apply_fp8_to_model(self.model, config=self.fp8_config)
             results = verify_fp8_conversion(self.model)
             print(f"[Rank {self.rank}] Model FP8 results: {results['success']}")
-
-        print(f"[Rank {self.rank}] Model data type: {self.model.dtype}")
+        else:
+            self.fp8_config = None
 
         if self.model.config.pad_token_id is None:
             self.model.config.pad_token_id = tokenizer.pad_token_id
@@ -421,17 +414,17 @@ class DTensorPolicyWorkerV2:
         if self.cpu_offload:
             self.model = self.move_to_device(self.model, "cpu")
 
-        if init_reference_model:
-            self.reference_model_state_dict = get_cpu_state_dict(
-                self.model.state_dict().items(), pin_memory=True
-            )
-
         if (
             "compile" in self.cfg["dtensor_cfg"]
             and self.cfg["dtensor_cfg"]["compile"]["enabled"]
         ):
             compile_config = build_compile_config(self.cfg["dtensor_cfg"]["compile"])
             self.model = compile_model(self.model, compile_config)
+
+        if init_reference_model:
+            self.reference_model_state_dict = get_cpu_state_dict(
+                self.model.state_dict().items(), pin_memory=True
+            )
 
         if init_optimizer:
             optimizer_cls = import_class_from_path(self.cfg["optimizer"]["name"])
@@ -727,7 +720,7 @@ class DTensorPolicyWorkerV2:
                                 input_ids=input_ids,
                                 attention_mask=attention_mask,
                                 position_ids=position_ids,
-                                use_cache=False,
+                                # use_cache=False,
                                 flash_attn_kwargs=flash_attn_kwargs,
                                 **vlm_kwargs,
                             )
@@ -871,6 +864,14 @@ class DTensorPolicyWorkerV2:
 
                     # Update parameters
                     self.optimizer.step()
+
+                if (
+                    self.fp8_config
+                    and self.fp8_config.enabled
+                    and self.fp8_config.precompute_float8_dynamic_scale_for_fsdp
+                    and self.dp_size > 1
+                ):
+                    precompute_float8_dynamic_scale_for_fsdp(self.model)
 
                 losses.append(torch.tensor(mb_losses).sum().item())
 
